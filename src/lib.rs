@@ -2,20 +2,22 @@ use std::fmt::{Display, Formatter};
 
 pub use http;
 use http::header::InvalidHeaderValue;
-use http::HeaderValue;
+use http::{header, HeaderName, HeaderValue};
 use thiserror::Error;
 use url::Url;
+
+pub use r#async::*;
 
 pub use crate::influx::DataPoint;
 pub use crate::influx::DataPointBuilder;
 
+mod r#async;
 pub mod blocking;
-
 mod influx;
 
 pub const API_ENDPOINT_V2: &str = "/api/v2/write";
 
-pub struct InfluxWriter<W: Client> {
+pub struct InfluxWriter<W> {
     client: W,
     url: Url,
     authorization: Authorization,
@@ -32,8 +34,6 @@ pub struct InfluxWriter<W: Client> {
 // airSensors,sensor_id=TLM0201 temperature=73.97038159354763,humidity=35.23103248356096,co=0.48445310567793615 1630424257000000000
 // airSensors,sensor_id=TLM0202 temperature=75.30007505999716,humidity=35.651929918691714,co=0.5141876544505826 1630424257000000000
 // '
-
-pub trait Client {}
 
 #[derive(Copy, Clone)]
 pub enum WritePrecision {
@@ -88,10 +88,10 @@ impl Authorization {
     }
 }
 
-impl From<Authorization> for HeaderValue {
+impl From<Authorization> for (HeaderName, HeaderValue) {
     fn from(value: Authorization) -> Self {
         match value {
-            Authorization::Token(token) => token,
+            Authorization::Token(header_value) => (header::AUTHORIZATION, header_value),
         }
     }
 }

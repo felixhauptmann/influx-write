@@ -5,15 +5,18 @@ use url::Url;
 use crate::influx::LineProtocol;
 use crate::{Authorization, DataPoint, InfluxWriter, WritePrecision, API_ENDPOINT_V2};
 
-#[cfg(feature = "reqwest-blocking")]
+#[cfg(feature = "reqwest")]
 pub mod reqwest;
 
-pub trait BlockingClient {
-    fn execute(&mut self, req: http::Request<String>) -> anyhow::Result<http::Response<Vec<u8>>>;
+pub trait AsyncClient {
+    fn execute(
+        &mut self,
+        req: http::Request<String>,
+    ) -> impl std::future::Future<Output = anyhow::Result<http::Response<Vec<u8>>>> + Send;
 }
 
-impl<W: BlockingClient> InfluxWriter<W> {
-    pub fn new_with_blocking_client(
+impl<W: AsyncClient> InfluxWriter<W> {
+    pub fn new_with_client(
         client: W,
         url: Url,
         authorization: Authorization,
@@ -29,29 +32,30 @@ impl<W: BlockingClient> InfluxWriter<W> {
         })
     }
 
-    pub fn write_single_blocking(&mut self, point: DataPoint) -> anyhow::Result<()> {
-        self.write_blocking(vec![point])
+    pub async fn write_single(&mut self, point: DataPoint) -> anyhow::Result<()> {
+        self.write(vec![point]).await
     }
 
     /// Write point with specified precision
-    pub fn write_single_with_precision_blocking(
+    pub async fn write_single_with_precision(
         &mut self,
         point: DataPoint,
         precision: WritePrecision,
     ) -> anyhow::Result<()> {
-        self.write_with_precision_blocking(vec![point], precision)
+        self.write_with_precision(vec![point], precision).await
     }
 
     /// Write point with default precision
-    pub fn write_blocking(
+    pub async fn write(
         &mut self,
         point: impl IntoIterator<Item = DataPoint>,
     ) -> anyhow::Result<()> {
-        self.write_with_precision_blocking(point, WritePrecision::default())
+        self.write_with_precision(point, WritePrecision::default())
+            .await
     }
 
     /// Write point with specified precision
-    pub fn write_with_precision_blocking(
+    pub async fn write_with_precision(
         &mut self,
         point: impl IntoIterator<Item = DataPoint>,
         precision: WritePrecision,
@@ -69,7 +73,7 @@ impl<W: BlockingClient> InfluxWriter<W> {
             .method(Method::POST)
             .body(point.to_line_protocol(precision)?)?;
 
-        let response = self.client.execute(req)?;
+        let response = self.client.execute(req).await?;
 
         if response.status().is_success() {
             Ok(())
