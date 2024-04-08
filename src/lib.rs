@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 pub use http;
 use http::header::InvalidHeaderValue;
-use http::{header, HeaderName, HeaderValue};
+use http::{header, HeaderName, HeaderValue, Method, Request, Uri};
 use thiserror::Error;
 use url::Url;
 
@@ -10,6 +10,7 @@ pub use r#async::*;
 
 pub use crate::influx::DataPoint;
 pub use crate::influx::DataPointBuilder;
+use crate::influx::LineProtocol;
 
 mod r#async;
 pub mod blocking;
@@ -23,6 +24,30 @@ pub struct InfluxWriter<W> {
     authorization: Authorization,
     org: String,
     bucket: String,
+}
+
+impl<W> InfluxWriter<W> {
+    pub(crate) fn build_request(
+        &self,
+        point: impl IntoIterator<Item = DataPoint>,
+        precision: WritePrecision,
+    ) -> anyhow::Result<Request<String>> {
+        let mut url = self.url.clone();
+        url.query_pairs_mut().extend_pairs([
+            ("org", &self.org),
+            ("bucket", &self.bucket),
+            ("precision", &precision.to_string()),
+        ]);
+
+        Ok(http::request::Builder::new()
+            .uri(Uri::try_from(url.as_str())?)
+            .header(header::USER_AGENT, "influx-write/0.0.0")
+            .header(header::AUTHORIZATION, self.authorization.header_value())
+            .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+            .header(header::ACCEPT, "application/json")
+            .method(Method::POST)
+            .body(dbg!(point.to_line_protocol(precision)?))?)
+    }
 }
 
 // curl --request POST \
