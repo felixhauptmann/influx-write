@@ -1,7 +1,8 @@
 use anyhow::bail;
+use log::trace;
 use url::Url;
 
-use crate::{Authorization, DataPoint, InfluxWriter, WritePrecision, API_ENDPOINT_V2};
+use crate::{API_ENDPOINT_V2, Authorization, DataPoint, InfluxWriter, WritePrecision};
 
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
@@ -60,9 +61,13 @@ impl<W: AsyncClient> InfluxWriter<W> {
     ) -> anyhow::Result<()> {
         let req = self.build_request(points, precision)?;
 
+        trace!("Sending request: {:?}", req);
+
         let response = self.client.execute(req).await?;
 
-        if response.status().is_success() && response.body() == b"" {
+        trace!("Got response: {:?}", response);
+
+        if response.status().is_success() {
             Ok(())
         } else {
             bail!(

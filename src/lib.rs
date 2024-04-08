@@ -46,7 +46,7 @@ impl<W> InfluxWriter<W> {
             .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
             .header(header::ACCEPT, "application/json")
             .method(Method::POST)
-            .body(dbg!(point.to_line_protocol(precision)?))?)
+            .body(point.to_line_protocol(precision)?)?)
     }
 }
 
