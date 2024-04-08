@@ -1,0 +1,23 @@
+[package]
+name = "influx-write"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4"
+reqwest = { version = "0.12", default-features = false, optional = true }
+thiserror = "1.0"
+url = "2.5"
+http = { version = "1.1" }
+anyhow = "1.0"
+log = "0.4"
+
+[dev-dependencies]
+mockito = "1.4.0"
+
+[features]
+default = ["reqwest-blocking"]
+reqwest = ["dep:reqwest"]
+reqwest-blocking = ["dep:reqwest", "reqwest/blocking"]
